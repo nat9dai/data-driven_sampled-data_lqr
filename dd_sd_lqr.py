@@ -53,18 +53,19 @@ def get_cart_pole_system(n: int = 4, m: int = 1):
 # Helper Functions - System Dynamics
 # ========================================
 
-def compute_true_Ad_Bd(A: np.ndarray, B: np.ndarray, h: float):
-    """Computes exact discrete-time matrices Ad and Bd."""
-    A_d = linalg.expm(A * h)
-    B_d = np.linalg.inv(A) @ (A_d - np.eye(A.shape[0])) @ B if np.linalg.matrix_rank(A) == A.shape[0] else None
-    return A_d, B_d
-
 # def compute_true_Ad_Bd(A: np.ndarray, B: np.ndarray, h: float):
 #     """Computes exact discrete-time matrices Ad and Bd."""
-#     n, m = A.shape[0], B.shape[1]
-#     M = np.block([[A, B], [np.zeros((m, n + m))]]) * h
-#     E = linalg.expm(M)
-#     return E[:n, :n], E[:n, n:]
+#     A_d = linalg.expm(A * h)
+#     B_d = np.linalg.inv(A) @ (A_d - np.eye(A.shape[0])) @ B if np.linalg.matrix_rank(A) == A.shape[0] else None
+#     return A_d, B_d
+
+def compute_true_Ad_Bd(A: np.ndarray, B: np.ndarray, h: float):
+    """Computes exact discrete-time matrices Ad and Bd."""
+    # Lemma 10.5.1 of Optimal Sampled-data Control Systems by Chen and Francis
+    n, m = A.shape[0], B.shape[1]
+    M = np.block([[A, B], [np.zeros((m, n + m))]])
+    E = linalg.expm(M*h)
+    return E[:n, :n], E[:n, n:]
 
 def compute_true_W_bar(A: np.ndarray, B: np.ndarray, Wx: np.ndarray, Wu: np.ndarray, h: float) -> np.ndarray:
     """Computes the true lifted cost matrix W_bar for continuous-time LQR."""
@@ -148,7 +149,6 @@ def update_controller_gain(Sigma_k: np.ndarray, hat_Sigma_k: np.ndarray,
         return True, K_k
     except linalg.LinAlgError:
         return False, None
-
 
 # ========================================
 # Simulation Functions
