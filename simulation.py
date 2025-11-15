@@ -20,25 +20,24 @@ class Simulation:
         if isinstance(controller, DDSDLQRController):
             self.L = controller.L
             # state-control history at sampling times
-            self.X_control_hist = [x0]  # Stores states at end of each control period
-            self.U_control_hist = []     # Stores controls applied during each period
-            self.J_hist = []             # Stores costs for each period
+            self.X_control_hist = []  # Stores states at start of each control period
+            self.U_control_hist = []  # Stores controls applied during each period
+            self.J_hist = []          # Stores costs for each period
 
     def run(self):
         x_sim = self.x0.copy()
         
+        # Compute initial control
+        u_k = self.controller.compute_control(x_sim)
+        if isinstance(self.controller, DDSDLQRController) and self.epsilon_std > 0:
+            epsilon_k = np.random.randn(self.system.m, 1) * self.epsilon_std
+            u_k = u_k + epsilon_k
+        
+        x_k_control = x_sim.copy()  # State at start of control period
+        
         for k in range(self.num_steps):
-            # At the start of each simulation step
-            x_k = x_sim.copy()
-            u_k = self.controller.compute_control(x_k)
-            
-            # Add exploration noise for data-driven controller
-            if isinstance(self.controller, DDSDLQRController) and self.epsilon_std > 0:
-                epsilon_k = np.random.randn(self.system.m, 1) * self.epsilon_std
-                u_k = u_k + epsilon_k
-            
-            # Simulate one step
-            x_sim = self.system.step(x_k, u_k, self.h_sim)
+            # Use the SAME control throughout the control period (zero-order hold)
+            x_sim = self.system.step(x_sim, u_k, self.h_sim)
 
             self.state_trajectory[:, k + 1] = np.squeeze(x_sim)
             self.control_trajectory[:, k] = np.squeeze(u_k)
@@ -48,11 +47,11 @@ class Simulation:
                 if isinstance(self.controller, DDSDLQRController):
                     # Compute cost using the state at the START of this control period
                     # and the control that was applied
-                    J_k = self.controller.compute_true_Jk(x_k, u_k)
-                    z_k = np.vstack((x_k, u_k))
+                    J_k = self.controller.compute_true_Jk(x_k_control, u_k)
+                    z_k = np.vstack((x_k_control, u_k))
                     
                     # Store the data
-                    self.X_control_hist.append(x_sim)  # State at END of control period
+                    self.X_control_hist.append(x_k_control)
                     self.U_control_hist.append(u_k)
                     self.J_hist.append(J_k)
                     
@@ -82,5 +81,12 @@ class Simulation:
                             print(f"SDP failed at control step {self.control_step}. Keeping previous gain.")
                     
                     self.control_step += 1
+                
+                # Compute NEW control for the NEXT period
+                x_k_control = x_sim.copy()  # Save state at start of new control period
+                u_k = self.controller.compute_control(x_sim)
+                if isinstance(self.controller, DDSDLQRController) and self.epsilon_std > 0:
+                    epsilon_k = np.random.randn(self.system.m, 1) * self.epsilon_std
+                    u_k = u_k + epsilon_k
 
         return self.state_trajectory, self.control_trajectory
