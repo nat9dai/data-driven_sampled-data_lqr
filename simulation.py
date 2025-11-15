@@ -1,9 +1,10 @@
 import numpy as np
+from scipy import linalg
 
 from controller import DDSDLQRController, SDLQRController
 
 class Simulation:
-    def __init__(self, system, controller, x0, sim_time, h_sim, epsilon_std=0.0):
+    def __init__(self, system, controller, x0, sim_time, h_sim, epsilon_std=0.0, random_seed=None):
         self.system = system
         self.controller = controller
         self.x0 = x0
@@ -17,21 +18,29 @@ class Simulation:
         self.control_step = 0  # Track control steps
         self.epsilon_std = epsilon_std  # Exploration noise
 
+        # Set random seed for reproducibility
+        if random_seed is not None:
+            np.random.seed(random_seed)
+
         if isinstance(controller, DDSDLQRController):
             self.L = controller.L
             # state-control history at sampling times
             self.X_control_hist = []  # Stores states at start of each control period
             self.U_control_hist = []  # Stores controls applied during each period
             self.J_hist = []          # Stores costs for each period
+            Ad_true, Bd_true = system.compute_true_Ad_Bd(self.h_control)
+            self.M_true = np.hstack((Ad_true, Bd_true))
+            self.M_k_step = self.controller.hat_Sigma_k @ linalg.inv(self.controller.Sigma_k)
+            self.M_hist = [np.full_like(self.M_true, np.nan)]
+            self.M_error = []  # Stores Frobenius norm of estimation error
 
     def run(self):
         x_sim = self.x0.copy()
         
         # Compute initial control
         u_k = self.controller.compute_control(x_sim)
-        if isinstance(self.controller, DDSDLQRController) and self.epsilon_std > 0:
-            epsilon_k = np.random.randn(self.system.m, 1) * self.epsilon_std
-            u_k = u_k + epsilon_k
+        epsilon_k = np.random.randn(self.system.m, 1) * self.epsilon_std
+        u_k = u_k + epsilon_k
         
         x_k_control = x_sim.copy()  # State at start of control period
         
@@ -75,18 +84,25 @@ class Simulation:
                                 self.controller.hat_Sigma_k,
                                 W_tilde_k
                             )
-                            if not success:
+                            if success:
+                                self.M_k_step = self.controller.hat_Sigma_k @ linalg.inv(self.controller.Sigma_k)
+                            else:
                                 print(f"Gain computation failed at control step {self.control_step}. Keeping previous gain.")
                         else:
                             print(f"SDP failed at control step {self.control_step}. Keeping previous gain.")
-                    
                     self.control_step += 1
-                
+
                 # Compute NEW control for the NEXT period
                 x_k_control = x_sim.copy()  # Save state at start of new control period
                 u_k = self.controller.compute_control(x_sim)
-                if isinstance(self.controller, DDSDLQRController) and self.epsilon_std > 0:
-                    epsilon_k = np.random.randn(self.system.m, 1) * self.epsilon_std
-                    u_k = u_k + epsilon_k
+                epsilon_k = np.random.randn(self.system.m, 1) * self.epsilon_std
+                u_k = u_k + epsilon_k
+
+            if isinstance(self.controller, DDSDLQRController):
+                # Store current estimate of system matrices
+                self.M_hist.append(self.M_k_step)
+                # Compute Frobenius norm of estimation error
+                error_norm = np.linalg.norm(self.M_k_step - self.M_true, 'fro')
+                self.M_error.append(error_norm)
 
         return self.state_trajectory, self.control_trajectory

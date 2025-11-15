@@ -43,8 +43,8 @@ x0 = np.array([[1.0], [0.5], [0.0], [0.0]])
 sim_time = 10.0
 
 # Create simulations
-ddsd_simulation = Simulation(plant_1, ddsd_controller, x0, sim_time, h_sim, epsilon_std=epsilon_std)
-sd_simulation = Simulation(plant_2, sd_controller, x0, sim_time, h_sim)
+ddsd_simulation = Simulation(plant_1, ddsd_controller, x0, sim_time, h_sim, epsilon_std=epsilon_std, random_seed=42)
+sd_simulation = Simulation(plant_2, sd_controller, x0, sim_time, h_sim, random_seed=42)
 
 # Run simulations
 print("Running Data-Driven SD-LQR simulation...")
@@ -63,6 +63,7 @@ viz = Visualizer(h_sim, sim_time)
 print("Generating DD-SDLQR plots...")
 viz.plot_state_trajectories(ddsd_states, save_path='plots/dd_sdlqr_states.png')
 viz.plot_input_trajectory(ddsd_controls, save_path='plots/dd_sdlqr_input.png')
+viz.plot_system_error(ddsd_simulation.M_error, save_path='plots/dd_sdlqr_system_error.png')
 
 # Generate plots for SD-LQR
 print("\nGenerating SD-LQR plots...")
