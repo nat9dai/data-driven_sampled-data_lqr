@@ -251,7 +251,7 @@ def run_simulation():
         W_tilde_k_step = current_W
 
         # Controller update
-        if k_control % config.update_freq == 0 and k_control > 0:
+        if k_control > 0:
             print(f"Control step {k_control}: Updating controller...")
 
             window_start = max(0, k_control - config.L)
@@ -259,6 +259,9 @@ def run_simulation():
                        for i in range(window_start, k_control)]
             J_window = J_hist[window_start:k_control]
 
+            # print(z_window)
+            # print(J_window)
+            # exit()
             # Solve SDP for cost estimation
             success, W_tilde_k = solve_sdp_for_cost(z_window, J_window, n, m)
 
