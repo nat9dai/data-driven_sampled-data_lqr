@@ -5,6 +5,7 @@ from system import CartPole
 from controller import SDLQRController, DDSDLQRController, DDLQRController
 from simulation import Simulation
 from visualiser import Visualizer
+from visualiser_tikz import TikZVisualizer
 
 # System parameters
 cart_pole_params = {
@@ -60,9 +61,11 @@ print("Simulations complete!\n")
 
 # Create plots directory if it doesn't exist
 os.makedirs('plots', exist_ok=True)
+os.makedirs('plots/tikz', exist_ok=True)
 
-# Create visualizer
+# Create visualizers
 viz = Visualizer(h_sim, sim_time)
+tikz_viz = TikZVisualizer(h_sim, sim_time)
 
 # Generate plots for DD-SDLQR
 print("Generating DD-SDLQR plots...")
@@ -89,6 +92,17 @@ viz.plot_three_way_comparison(ddsd_states, dd_states, sd_states,
                               save_path='plots/three_way_state_norm_comparison.png')
 viz.plot_error_comparison(ddsd_simulation.M_error, dd_simulation.M_error,
                          save_path='plots/system_error_comparison.png')
+
+# Generate TikZ plots for LaTeX
+print("\nGenerating TikZ plots for LaTeX...")
+tikz_viz.plot_state_trajectories(ddsd_states, save_path='plots/tikz/dd_sdlqr_states.tex')
+tikz_viz.plot_input_trajectory(ddsd_controls, save_path='plots/tikz/dd_sdlqr_input.tex')
+tikz_viz.plot_comparison(ddsd_states, sd_states,
+                        save_path='plots/tikz/state_norm_comparison.tex')
+tikz_viz.plot_three_way_comparison(ddsd_states, dd_states, sd_states,
+                                   save_path='plots/tikz/three_way_state_norm_comparison.tex')
+tikz_viz.plot_error_comparison(ddsd_simulation.M_error, dd_simulation.M_error,
+                              save_path='plots/tikz/system_error_comparison.tex')
 
 # Display all plots
 viz.show_all()

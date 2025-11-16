@@ -1,0 +1,69 @@
+\documentclass{article}
+\usepackage{pgf}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{subcaption}  % For subfigures if needed
+
+\title{Data-Driven Sampled-Data LQR Results}
+\author{Your Name}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This document demonstrates how to include the PGF/TikZ plots generated from the simulation results.
+
+\section{Results}
+
+\subsection{State Trajectories}
+
+Figure~\ref{fig:states} shows the state trajectories of the cart-pole system under DD-SDLQR control.
+
+\begin{figure}[htbp]
+  \centering
+  \input{dd_sdlqr_states.tex}
+  \caption{State trajectories for DD-SDLQR controller. The plot shows cart position, pole angle, cart velocity, and pole angular velocity over time.}
+  \label{fig:states}
+\end{figure}
+
+\subsection{Control Input}
+
+The control input force applied to the system is shown in Figure~\ref{fig:input}.
+
+\begin{figure}[htbp]
+  \centering
+  \input{dd_sdlqr_input.tex}
+  \caption{Control input force over time.}
+  \label{fig:input}
+\end{figure}
+
+\subsection{Controller Comparison}
+
+Figure~\ref{fig:comparison3way} presents a three-way comparison of the state norms for different control strategies: DD-SDLQR (data-driven sampled-data LQR), DD-LQR (data-driven continuous-time LQR), and SD-LQR (sampled-data LQR with known model).
+
+\begin{figure}[htbp]
+  \centering
+  \input{three_way_state_norm_comparison.tex}
+  \caption{State norm comparison among DD-SDLQR, DD-LQR, and SD-LQR controllers. The results demonstrate that DD-SDLQR achieves performance close to the ideal case while using only data-driven system identification.}
+  \label{fig:comparison3way}
+\end{figure}
+
+\subsection{System Estimation Error}
+
+The convergence of the system estimation error is illustrated in Figure~\ref{fig:error}.
+
+\begin{figure}[htbp]
+  \centering
+  \input{system_error_comparison.tex}
+  \caption{System estimation error comparison between DD-SDLQR and DD-LQR. The error is computed as the Frobenius norm of the difference between estimated and true system matrices.}
+  \label{fig:error}
+\end{figure}
+
+\section{Conclusion}
+
+The results demonstrate the effectiveness of the data-driven sampled-data LQR approach in achieving robust control performance without requiring explicit knowledge of the system model.
+
+\end{document}
