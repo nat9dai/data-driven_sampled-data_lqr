@@ -126,7 +126,7 @@ class Visualizer:
         times_ms = np.array(control_loop_times) * 1000
         control_steps = np.arange(len(times_ms))
         running_avg = np.cumsum(times_ms) / (control_steps + 1)
-        
+
         plt.figure(figsize=(6, 4))
         plt.plot(control_steps, times_ms, 'o-', label='Per-step time',
                  linewidth=0.8, markersize=3, alpha=0.6)
@@ -139,7 +139,86 @@ class Visualizer:
         plt.tight_layout()
         plt.savefig(save_path)
         print(f"Control loop timing plot saved to '{save_path}'")
-    
+
+    def plot_three_way_comparison(self, X_sim_ddsd, X_sim_dd, X_sim_sd,
+                                   save_path='three_way_state_norm_comparison.png'):
+        """
+        Plots comparison among all three controllers.
+
+        Args:
+            X_sim_ddsd: DD-SDLQR states (n × N)
+            X_sim_dd: DD-LQR states (n × N)
+            X_sim_sd: SD-LQR states (n × N)
+            save_path: Where to save the plot
+        """
+        # Convert to (N, n) format
+        if X_sim_ddsd.shape[0] < X_sim_ddsd.shape[1]:
+            X_sim_ddsd = X_sim_ddsd.T
+        if X_sim_dd.shape[0] < X_sim_dd.shape[1]:
+            X_sim_dd = X_sim_dd.T
+        if X_sim_sd.shape[0] < X_sim_sd.shape[1]:
+            X_sim_sd = X_sim_sd.T
+
+        state_norm_ddsd = np.linalg.norm(X_sim_ddsd, axis=1)
+        state_norm_dd = np.linalg.norm(X_sim_dd, axis=1)
+        state_norm_sd = np.linalg.norm(X_sim_sd, axis=1)
+        t_sim = np.arange(len(X_sim_ddsd)) * self.h_sim
+
+        plt.figure(figsize=(6, 4))
+        plt.plot(t_sim, state_norm_ddsd, label='DD-SDLQR',
+                 linewidth=1.2, color='blue', alpha=0.8)
+        plt.plot(t_sim, state_norm_dd, label='DD-LQR',
+                 linewidth=1.2, color='green', alpha=0.8)
+        plt.plot(t_sim, state_norm_sd, label='SD-LQR (Known Model)',
+                 linewidth=1.2, color='red', linestyle='--', alpha=0.8)
+        plt.ylabel('State Norm')
+        plt.xlabel('Time (s)')
+        plt.xlim(0, self.T_total)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        print(f"\nThree-way state norm comparison plot saved to '{save_path}'")
+
+        print(f"\nFinal state norm (DD-SDLQR): {state_norm_ddsd[-1]:.6f}")
+        print(f"Final state norm (DD-LQR): {state_norm_dd[-1]:.6f}")
+        print(f"Final state norm (SD-LQR): {state_norm_sd[-1]:.6f}")
+        print(f"Performance ratio (DD-SDLQR/SD-LQR): {state_norm_ddsd[-1]/state_norm_sd[-1]:.4f}")
+        print(f"Performance ratio (DD-LQR/SD-LQR): {state_norm_dd[-1]/state_norm_sd[-1]:.4f}")
+
+    def plot_error_comparison(self, M_error_ddsd, M_error_dd,
+                             save_path='system_error_comparison.png'):
+        """
+        Plots system estimation error comparison between DD-SDLQR and DD-LQR.
+
+        Args:
+            M_error_ddsd: DD-SDLQR estimation errors
+            M_error_dd: DD-LQR estimation errors
+            save_path: Where to save the plot
+        """
+        t_sim_ddsd = np.arange(len(M_error_ddsd)) * self.h_sim
+        t_sim_dd = np.arange(len(M_error_dd)) * self.h_sim
+
+        plt.figure(figsize=(6, 4))
+        plt.plot(t_sim_ddsd, M_error_ddsd,
+                 label='DD-SDLQR',
+                 linewidth=1.2, color='blue', alpha=0.8)
+        plt.plot(t_sim_dd, M_error_dd,
+                 label='DD-LQR',
+                 linewidth=1.2, color='green', alpha=0.8)
+        plt.ylabel('System Estimation Error')
+        plt.xlabel('Time (s)')
+        plt.yscale('log')
+        plt.xlim(0, self.T_total)
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        print(f"System estimation error comparison plot saved to '{save_path}'")
+
+        print(f"\nFinal estimation error (DD-SDLQR): {M_error_ddsd[-1]:.6e}")
+        print(f"Final estimation error (DD-LQR): {M_error_dd[-1]:.6e}")
+
     def show_all(self):
         """Display all matplotlib figures."""
         plt.show()

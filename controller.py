@@ -16,6 +16,7 @@ class BaseController:
         u = self.K @ x_k
         return u
     
+# Chen and Francis, "Optimal Sampled-Data Control Systems"
 class SDLQRController(BaseController):
     def __init__(self, system: System, Wx, Wu, h_control):
         super().__init__(system)
@@ -47,18 +48,47 @@ class SDLQRController(BaseController):
         K_opt = -linalg.inv(W_uu + Bd.T @ P_opt @ Bd) @ (W_xu.T + Bd.T @ P_opt @ Ad)
         self.K = K_opt
 
-class DDSDLQRController(SDLQRController):
-    def __init__(self, system: System, Wx, Wu, h_control, L, lamda, Sigma_zero=1e-4):
-        super().__init__(system, Wx, Wu, h_control)
-        self.L = L
+# Anders Rantzer, "Linear Quadratic Dual Control"
+# https://arxiv.org/abs/2312.06014
+class DDLQRController(BaseController):
+    def __init__(self, system: System, Wx, Wu, h_control, lamda=0.99, Sigma_zero=1e-4):
+        super().__init__(system)
+        self.A = system.A
+        self.B = system.B
+        self.Wx = Wx
+        self.Wu = Wu
+        self.h = h_control
         self.lamda = lamda
-        self.Sigma_k = np.eye(self.n_aug)*Sigma_zero # Regularization
+        self.n_aug = self.n + self.m
+        self.Sigma_k = np.eye(self.n_aug) * Sigma_zero  # Regularization
         self.hat_Sigma_k = np.zeros((self.n, self.n_aug))
 
     def update_Sigma(self, z_k, x_k_plus_1):
         """Updates the data covariance matrix Sigma_k."""
         self.Sigma_k = self.lamda * self.Sigma_k + z_k @ z_k.T
         self.hat_Sigma_k = self.lamda * self.hat_Sigma_k + x_k_plus_1 @ z_k.T
+
+    def compute_optimal_gain(self, Sigma_k: np.ndarray, hat_Sigma_k: np.ndarray):
+        """Updates the controller gain based on estimated dynamics and cost."""
+        try:
+            M_tilde_k = hat_Sigma_k @ linalg.inv(Sigma_k)
+            A_tilde_k = M_tilde_k[:self.n, :self.n]
+            B_tilde_k = M_tilde_k[:self.n, self.n:]
+
+            P_k = linalg.solve_discrete_are(A_tilde_k, B_tilde_k, self.Wx, self.Wu, None, None)
+            K_k = -linalg.inv(self.Wu + B_tilde_k.T @ P_k @ B_tilde_k) @ (B_tilde_k.T @ P_k @ A_tilde_k)
+
+            self.K = K_k
+
+            return True
+        except linalg.LinAlgError:
+            return False
+
+# Our Data-Driven Sampled-Data LQR Controller
+class DDSDLQRController(DDLQRController):
+    def __init__(self, system: System, Wx, Wu, h_control, L, lamda, Sigma_zero=1e-4):
+        super().__init__(system, Wx, Wu, h_control, lamda, Sigma_zero)
+        self.L = L
 
     def compute_true_Jk(self, x_k, u_k) -> float:
         """Computes the true running cost J_k by simulating the continuous-time system."""
