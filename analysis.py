@@ -27,19 +27,19 @@ def create_panel_1():
     ax.plot(beta_vals, max_rho_vals, 'b-', linewidth=2.5)
     ax.fill_between(beta_vals, 0, max_rho_vals, alpha=0.3, label='Finite-gain guarantee region')
     ax.set_xlabel(r'$\beta$', fontsize=13)
-    ax.set_ylabel(r'Maximum allowable $\rho$', fontsize=13)
+    ax.set_ylabel(r'$\rho$', fontsize=13)
     # ax.set_title(r'Stability boundary: $\rho_{\max}(\beta)$', fontsize=13, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=11)
     ax.set_xlim([1, 5])
 
     # Add annotations
-    for beta_mark in [1.5, 2.0, 3.0]:
-        rho_max = compute_max_rho(beta_mark)
-        ax.plot(beta_mark, rho_max, 'ro', markersize=8)
-        ax.annotate(f'β={beta_mark}\nρ={rho_max:.3f}',
-                    xy=(beta_mark, rho_max), xytext=(beta_mark+0.3, rho_max+0.005),
-                    fontsize=9, bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+    # for beta_mark in [1.5, 2.0, 3.0]:
+    #     rho_max = compute_max_rho(beta_mark)
+    #     ax.plot(beta_mark, rho_max, 'ro', markersize=8)
+    #     ax.annotate(f'β={beta_mark}\nρ={rho_max:.3f}',
+    #                 xy=(beta_mark, rho_max), xytext=(beta_mark+0.3, rho_max+0.005),
+    #                 fontsize=9, bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
 
     plt.savefig('plots/analysis/panel_1_max_rho_vs_beta.png', dpi=300, bbox_inches='tight')
     print("Panel 1 saved: panel_1_max_rho_vs_beta.png")
