@@ -53,8 +53,18 @@ def create_panel_1():
 
     # Save TikZ version
     if TIKZ_AVAILABLE:
-        tikzplotlib.save('plots/tikz/panel_1_max_rho_vs_beta.tex')
-        print("Panel 1 TikZ saved: panel_1_max_rho_vs_beta.tex")
+        try:
+            # Workaround for tikzplotlib legend bug: get legend before saving
+            legend = ax.get_legend()
+            if legend and not hasattr(legend, '_ncol'):
+                legend._ncol = legend._ncols
+
+            tikzplotlib.save('plots/tikz/panel_1_max_rho_vs_beta.tex',
+                           axis_width='\\figurewidth',
+                           axis_height='\\figureheight')
+            print("Panel 1 TikZ saved: panel_1_max_rho_vs_beta.tex")
+        except Exception as e:
+            print(f"Warning: Could not save TikZ for Panel 1: {e}")
     plt.close()
 
 def create_panel_2():
@@ -89,10 +99,64 @@ def create_panel_2():
     plt.savefig('plots/analysis/panel_2_delta_contour.png', dpi=300, bbox_inches='tight')
     print("Panel 2 saved: panel_2_delta_contour.png")
 
-    # Save TikZ version
+    # Save TikZ version (simplified - contour plots have tikzplotlib compatibility issues)
     if TIKZ_AVAILABLE:
-        tikzplotlib.save('plots/tikz/panel_2_delta_contour.tex')
-        print("Panel 2 TikZ saved: panel_2_delta_contour.tex")
+        try:
+            # Create a highly simplified version for TikZ (just stability boundary and key points)
+            fig_tikz = plt.figure(figsize=(8, 6))
+            ax_tikz = plt.gca()
+
+            # Plot stability boundary
+            ax_tikz.plot(beta_vals, max_rho_vals, 'k-', linewidth=2.5, label='Stability boundary')
+            ax_tikz.fill_between(beta_vals, 0, max_rho_vals, alpha=0.2, color='green',
+                               label='Stable region')
+
+            # Add key contour lines as simple plots
+            # For δ=0.5, 0.8, 0.9, 0.95, 1.0, plot as curves
+            for delta_val, color, lw in [(0.5, 'blue', 1), (0.8, 'orange', 1),
+                                         (0.9, 'red', 2), (0.95, 'darkred', 2),
+                                         (1.0, 'black', 3)]:
+                # Solve 2β²ρ(ρ+2) = δ for ρ
+                rho_contour = []
+                beta_contour = []
+                for b in beta_grid:
+                    # Solve: 2b²ρ² + 4b²ρ - δ = 0
+                    a_coef = 2 * b**2
+                    b_coef = 4 * b**2
+                    c_coef = -delta_val
+                    disc = b_coef**2 - 4*a_coef*c_coef
+                    if disc >= 0:
+                        rho_sol = (-b_coef + np.sqrt(disc)) / (2*a_coef)
+                        if 0 <= rho_sol <= 0.25:
+                            rho_contour.append(rho_sol)
+                            beta_contour.append(b)
+                if beta_contour:
+                    ax_tikz.plot(beta_contour, rho_contour, color=color, linewidth=lw,
+                               label=f'δ={delta_val}')
+
+            ax_tikz.set_xlabel(r'$\beta$', fontsize=13)
+            ax_tikz.set_ylabel(r'$\rho$', fontsize=13)
+            ax_tikz.grid(True, alpha=0.3)
+            ax_tikz.legend(fontsize=10, loc='best')
+            ax_tikz.set_xlim([1.01, 5.0])
+            ax_tikz.set_ylim([0, 0.25])
+
+            # Fix legend bug
+            legend = ax_tikz.get_legend()
+            if legend and not hasattr(legend, '_ncol'):
+                legend._ncol = legend._ncols
+
+            tikzplotlib.save('plots/tikz/panel_2_delta_contour.tex',
+                           axis_width='\\figurewidth',
+                           axis_height='\\figureheight')
+            print("Panel 2 TikZ saved: panel_2_delta_contour.tex (simplified version)")
+            plt.close(fig_tikz)
+        except Exception as e:
+            print(f"Warning: Could not save TikZ for Panel 2: {e}")
+            import traceback
+            traceback.print_exc()
+            if 'fig_tikz' in locals():
+                plt.close(fig_tikz)
     plt.close()
 
 if __name__ == "__main__":
