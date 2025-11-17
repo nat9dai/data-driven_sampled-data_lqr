@@ -1,6 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+try:
+    import tikzplotlib
+    TIKZ_AVAILABLE = True
+except ImportError:
+    TIKZ_AVAILABLE = False
+    print("Warning: tikzplotlib not available, TikZ output will be skipped")
+
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = ['Times New Roman', 'DejaVu Serif', 'Liberation Serif', 'Times', 'serif']
 plt.rcParams['mathtext.fontset'] = 'stix'
@@ -27,22 +34,27 @@ def create_panel_1():
     ax.plot(beta_vals, max_rho_vals, 'b-', linewidth=2.5)
     ax.fill_between(beta_vals, 0, max_rho_vals, alpha=0.3, label='Finite-gain guarantee region')
     ax.set_xlabel(r'$\beta$', fontsize=13)
-    ax.set_ylabel(r'Maximum allowable $\rho$', fontsize=13)
+    ax.set_ylabel(r'$\rho$', fontsize=13)
     # ax.set_title(r'Stability boundary: $\rho_{\max}(\beta)$', fontsize=13, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=11)
     ax.set_xlim([1, 5])
 
     # Add annotations
-    for beta_mark in [1.5, 2.0, 3.0]:
-        rho_max = compute_max_rho(beta_mark)
-        ax.plot(beta_mark, rho_max, 'ro', markersize=8)
-        ax.annotate(f'β={beta_mark}\nρ={rho_max:.3f}',
-                    xy=(beta_mark, rho_max), xytext=(beta_mark+0.3, rho_max+0.005),
-                    fontsize=9, bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+    # for beta_mark in [1.5, 2.0, 3.0]:
+    #     rho_max = compute_max_rho(beta_mark)
+        # ax.plot(beta_mark, rho_max, 'ro', markersize=8)
+        # ax.annotate(f'β={beta_mark}\nρ={rho_max:.3f}',
+        #             xy=(beta_mark, rho_max), xytext=(beta_mark+0.3, rho_max+0.005),
+        #             fontsize=9, bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
 
     plt.savefig('plots/analysis/panel_1_max_rho_vs_beta.png', dpi=300, bbox_inches='tight')
     print("Panel 1 saved: panel_1_max_rho_vs_beta.png")
+
+    # Save TikZ version
+    if TIKZ_AVAILABLE:
+        tikzplotlib.save('plots/tikz/panel_1_max_rho_vs_beta.tex')
+        print("Panel 1 TikZ saved: panel_1_max_rho_vs_beta.tex")
     plt.close()
 
 def create_panel_2():
@@ -76,12 +88,22 @@ def create_panel_2():
 
     plt.savefig('plots/analysis/panel_2_delta_contour.png', dpi=300, bbox_inches='tight')
     print("Panel 2 saved: panel_2_delta_contour.png")
+
+    # Save TikZ version
+    if TIKZ_AVAILABLE:
+        tikzplotlib.save('plots/tikz/panel_2_delta_contour.tex')
+        print("Panel 2 TikZ saved: panel_2_delta_contour.tex")
     plt.close()
 
 if __name__ == "__main__":
     print("Creating theoretical analysis plots...")
+    if not TIKZ_AVAILABLE:
+        print("\n⚠️  tikzplotlib not available (matplotlib version conflict)")
+        print("    For TikZ plots, run: python3 create_tikz_plots.py\n")
 
     create_panel_1()
     create_panel_2()
 
     print("\n✓ Analysis complete!")
+    if not TIKZ_AVAILABLE:
+        print("\n💡 Tip: TikZ plots can be generated with: python3 create_tikz_plots.py")
