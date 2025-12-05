@@ -26,6 +26,8 @@ class SDLQRController(BaseController):
         self.Wu = Wu
         self.h = h_control
         self.n_aug = self.n + self.m
+        self.P_opt = None
+        self.compute_optimal_gain()
 
     def compute_true_W_bar(self):
         """Computes the true lifted cost matrix W_bar for continuous-time LQR."""
@@ -44,8 +46,8 @@ class SDLQRController(BaseController):
         Ad, Bd = self.system.compute_true_Ad_Bd(self.h)
         W_bar_true = self.compute_true_W_bar()
         W_xx, W_uu, W_xu = W_bar_true[:self.n, :self.n], W_bar_true[self.n:, self.n:], W_bar_true[:self.n, self.n:]
-        P_opt = linalg.solve_discrete_are(Ad, Bd, W_xx, W_uu, None, W_xu)
-        K_opt = -linalg.inv(W_uu + Bd.T @ P_opt @ Bd) @ (W_xu.T + Bd.T @ P_opt @ Ad)
+        self.P_opt = linalg.solve_discrete_are(Ad, Bd, W_xx, W_uu, None, W_xu)
+        K_opt = -linalg.inv(W_uu + Bd.T @ self.P_opt @ Bd) @ (W_xu.T + Bd.T @ self.P_opt @ Ad)
         self.K = K_opt
 
 # Anders Rantzer, "Linear Quadratic Dual Control"
@@ -90,6 +92,11 @@ class DDSDLQRController(DDLQRController):
         super().__init__(system, Wx, Wu, h_control, lamda, Sigma_zero)
         self.L = L
 
+        # For computing bound in Corollary 1
+        optimal_controller = SDLQRController(system, Wx, Wu, h_control)
+        self.P_opt = optimal_controller.P_opt
+        self.W_true = optimal_controller.compute_true_W_bar()
+
     def compute_true_Jk(self, x_k, u_k) -> float:
         """Computes the true running cost J_k by simulating the continuous-time system."""
         # Assuming that we can get high-rate state measurements x(t)
@@ -120,9 +127,9 @@ class DDSDLQRController(DDLQRController):
             return prob.status == 'optimal', W_tilde.value if prob.status == 'optimal' else None
         except Exception:
             return False, None
-        
+            
     def compute_optimal_gain(self, Sigma_k: np.ndarray, hat_Sigma_k: np.ndarray,
-                            W_tilde_k: np.ndarray):
+                            W_tilde_k: np.ndarray, beta: float = None):
         """Updates the controller gain based on estimated dynamics and cost."""
         try:
             M_tilde_k = hat_Sigma_k @ linalg.inv(Sigma_k)
@@ -135,8 +142,80 @@ class DDSDLQRController(DDLQRController):
             P_k = linalg.solve_discrete_are(A_tilde_k, B_tilde_k, W_xx_k, W_uu_k, None, W_xu_k)
             K_k = -linalg.inv(W_uu_k + B_tilde_k.T @ P_k @ B_tilde_k) @ (W_xu_k.T + B_tilde_k.T @ P_k @ A_tilde_k)
 
+            # Compute Q_k implicitly
+            AB_tilde = np.hstack([A_tilde_k, B_tilde_k])
+            Q_k = W_tilde_k + AB_tilde.T @ P_k @ AB_tilde
+            
+            """
+            Want to add constraint:
+            W_tilde_k <= Q_k <= beta^2 * W_tilde_k
+            """
             self.K = K_k
-
             return True
         except linalg.LinAlgError:
             return False
+            
+    def compute_optimal_gain_lmi(self, Sigma_k: np.ndarray, hat_Sigma_k: np.ndarray,
+                                    W_tilde_k: np.ndarray, beta: float):
+        
+        eps = 1e-6  # Small positive number for numerical stability
+
+        M_tilde_k = hat_Sigma_k @ linalg.inv(Sigma_k)
+        A_tilde_k = M_tilde_k[:self.n, :self.n]
+        B_tilde_k = M_tilde_k[:self.n, self.n:]
+
+        W_xx_k = W_tilde_k[:self.n, :self.n]
+        W_uu_k = W_tilde_k[self.n:, self.n:]
+        W_xu_k = W_tilde_k[:self.n, self.n:]
+
+        # Decision variable
+        P = cp.Variable((self.n, self.n), symmetric=True)
+
+        # LMI blocks
+        # Top-left: A^T P A - P + W_xx
+        M11 = A_tilde_k.T @ P @ A_tilde_k - P + W_xx_k
+
+        # Top-right: A^T P B + W_xu
+        M12 = A_tilde_k.T @ P @ B_tilde_k + W_xu_k
+
+        # Bottom-left: transpose of M12
+        M21 = M12.T
+
+        # Bottom-right: W_uu + B^T P B
+        M22 = W_uu_k + B_tilde_k.T @ P @ B_tilde_k
+
+        # Full LMI matrix
+        M = cp.bmat([[M11, M12],
+                    [M21, M22]])
+        # Riccati inequality: M >= 0
+        constraints = [M >> 0]
+
+        # Ensure P is positive definite (strict) numerically:
+        constraints += [P - eps * np.eye(self.n) >> 0]
+
+        # Bound
+        AB_tilde = np.hstack([A_tilde_k, B_tilde_k])
+        Q = W_tilde_k + AB_tilde.T @ P @ AB_tilde
+        constraints += [beta**2 * W_tilde_k - Q >> 0]
+        constraints += [Q - W_tilde_k >> 0]
+
+        # Objective: maximize trace(P) to get stabilizing solution
+        # (minimizing would give P≈0, which doesn't stabilize the system)
+        objective = cp.Maximize(cp.trace(P))
+
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver=cp.CLARABEL, verbose=False)
+
+        if prob.status not in ["optimal", "optimal_inaccurate"]:
+            print("Bro! Cannot solve!")
+            return False
+
+        P_opt = P.value
+
+        # Recover K
+        Muu = W_uu_k + B_tilde_k.T @ P_opt @ B_tilde_k
+        Mux = W_xu_k.T + B_tilde_k.T @ P_opt @ A_tilde_k
+        K_opt = -np.linalg.solve(Muu, Mux)
+        self.K = K_opt
+        return True
+        # return P_opt, K_opt

@@ -4,7 +4,7 @@ from scipy import linalg
 from controller import DDSDLQRController, SDLQRController, DDLQRController
 
 class Simulation:
-    def __init__(self, system, controller, x0, sim_time, h_sim, epsilon_std=0.0, random_seed=None):
+    def __init__(self, system, controller, x0, sim_time, h_sim, epsilon_std=0.0, w_k=None, random_seed=None):
         self.system = system
         self.controller = controller
         self.x0 = x0
@@ -17,6 +17,13 @@ class Simulation:
         self.state_trajectory[:, 0] = np.squeeze(x0)
         self.control_step = 0  # Track control steps
         self.epsilon_std = epsilon_std  # Exploration noise
+        if w_k is None:
+            self.w_k = np.zeros((system.n, 1))  # No perturbation by default
+        else:
+            self.w_k = w_k  # Additive purturbation (if any)
+
+        # No additive process noise - model mismatch is handled through parameter uncertainty
+        # self.Sigma_w = np.zeros((system.n, system.n))
 
         # Set random seed for reproducibility
         if random_seed is not None:
@@ -28,11 +35,19 @@ class Simulation:
             self.X_control_hist = []  # Stores states at start of each control period
             self.U_control_hist = []  # Stores controls applied during each period
             self.J_hist = []          # Stores costs for each period
-            Ad_true, Bd_true = system.compute_true_Ad_Bd(self.h_control)
-            self.M_true = np.hstack((Ad_true, Bd_true))
+            self.Ad_true, self.Bd_true = system.compute_true_Ad_Bd(self.h_control)
+            self.M_true = np.hstack((self.Ad_true, self.Bd_true))
             self.M_k_step = self.controller.hat_Sigma_k @ linalg.inv(self.controller.Sigma_k)
             self.M_hist = [np.full_like(self.M_true, np.nan)]
             self.M_error = []  # Stores Frobenius norm of estimation error
+            self.W_tilde_k = np.zeros((system.n + system.m, system.n + system.m))  # Initialize W_tilde_k
+            self.bound_rhs_values = []  # Store individual RHS values for rolling window
+            self.bound_lhs_values = []  # Store individual LHS values for rolling window
+            self.bound_rhs = 0.0
+            self.bound_lhs = 0.0
+            self.bound_rhs_hist = []
+            self.bound_lhs_hist = []
+            self.x_for_rhs_bound = []
         elif isinstance(controller, SDLQRController):
             pass
         elif isinstance(controller, DDLQRController):
@@ -56,8 +71,38 @@ class Simulation:
         if isinstance(self.controller, DDSDLQRController):
             self.X_control_hist.append(x_k_control)
             self.U_control_hist.append(u_k)
+            # We assume we know high-rate state measurements to compute true cost
             J_k = self.controller.compute_true_Jk(x_k_control, u_k)
             self.J_hist.append(J_k)
+
+            beta = 3.6 #3.6570642935721427 #3 # 70.6
+            rho = 6e-4 #0.0027739304327549044 #1e-8
+            gamma = 6.63*beta # 0.1, 0.2, 0.5*beta try
+            alpha = beta**2 + (1/(1-beta**2/gamma**2))*(1-beta**2/(1-2*beta**2*rho*(rho+2))) # 5038.860337827362
+            W_xx_k = self.controller.W_true[:self.system.n, :self.system.n]
+
+            # Initial RHS value: gamma^2/alpha * ||Bd*epsilon_k + w_k||_{W_h}^2
+            perturbation = self.Bd_true @ epsilon_k + self.w_k
+            rhs_value = (gamma**2/alpha) * (perturbation.T @ W_xx_k @ perturbation)
+            self.bound_rhs_values.append(rhs_value)
+            self.x_for_rhs_bound.append(x_k_control)
+            bound_window = 10
+            # Sum last "bound_window" values
+            index_start = max(0, len(self.bound_rhs_values)-bound_window)
+            self.bound_rhs = (
+                sum(self.bound_rhs_values[index_start:])
+                + (1/alpha) * (self.x_for_rhs_bound[index_start].T @ self.controller.P_opt @ self.x_for_rhs_bound[index_start])
+            )
+            self.bound_rhs_hist.append(self.bound_rhs)
+
+            # Initial LHS value
+            block_I_K = np.vstack((np.eye(self.system.n), self.controller.K))
+            W_aug = block_I_K.T @ self.controller.W_true @ block_I_K
+            lhs_value = x_k_control.T @ W_aug @ x_k_control
+            self.bound_lhs_values.append(lhs_value)
+            # Sum last 10 values
+            self.bound_lhs = sum(self.bound_lhs_values[max(0, len(self.bound_lhs_values)-bound_window):])
+            self.bound_lhs_hist.append(self.bound_lhs)
         elif isinstance(self.controller, SDLQRController):
             pass
         elif isinstance(self.controller, DDLQRController):
@@ -65,7 +110,7 @@ class Simulation:
 
         for k in range(self.num_steps):
             # Use the SAME control throughout the control period (zero-order hold)
-            x_sim = self.system.step(x_sim, u_k, self.h_sim)
+            x_sim = self.system.step(x_sim, u_k, self.h_sim) + self.w_k
 
             self.state_trajectory[:, k + 1] = np.squeeze(x_sim)
             self.control_trajectory[:, k] = np.squeeze(u_k)
@@ -74,7 +119,31 @@ class Simulation:
             if (k + 1) % int(self.h_control / self.h_sim) == 0:
                 # Controller-specific updates at sampling times
                 if isinstance(self.controller, DDSDLQRController):
+                    # Update controller gain (this computes K for the NEXT period)
                     self._update_ddsdlqr(x_k_control, u_k, x_sim)
+
+                    W_xx_k = self.controller.W_true[:self.system.n, :self.system.n]
+                    # Add new RHS value: gamma^2/alpha * ||Bd*epsilon_k + w_k||_{W_h}^2
+                    perturbation = self.Bd_true @ epsilon_k + self.w_k
+                    rhs_value = (gamma**2/alpha) * (perturbation.T @ W_xx_k @ perturbation)
+                    self.bound_rhs_values.append(rhs_value)
+                    self.x_for_rhs_bound.append(x_k_control)
+                    # Sum last bound_window values
+                    index_start = max(0, len(self.bound_rhs_values)-bound_window)
+                    self.bound_rhs = (
+                        sum(self.bound_rhs_values[index_start:])
+                        + (1/alpha) * (self.x_for_rhs_bound[index_start].T @ self.controller.P_opt @ self.x_for_rhs_bound[index_start])
+                    )
+
+                    # Add new LHS value using the gain that was actually USED
+                    block_I_K = np.vstack((np.eye(self.system.n), self.controller.K))
+                    W_aug = block_I_K.T @ self.controller.W_true @ block_I_K
+                    lhs_value = x_k_control.T @ W_aug @ x_k_control
+                    self.bound_lhs_values.append(lhs_value)
+                    # Sum last bound_window values
+                    self.bound_lhs = sum(self.bound_lhs_values[max(0, len(self.bound_lhs_values)-bound_window):])
+
+                    # print(f"Step {self.control_step}: Bound LHS = {self.bound_lhs[0,0]:.4f}, Bound RHS = {self.bound_rhs[0,0]:.4f}")
                 elif isinstance(self.controller, SDLQRController):
                     pass
                 elif isinstance(self.controller, DDLQRController):
@@ -93,6 +162,9 @@ class Simulation:
                 # Compute Frobenius norm of estimation error
                 error_norm = np.linalg.norm(self.M_k_step - self.M_true, 'fro')
                 self.M_error.append(error_norm)
+                self.bound_lhs_hist.append(self.bound_lhs)
+                self.bound_rhs_hist.append(self.bound_rhs)
+
             elif isinstance(self.controller, SDLQRController):
                 pass
             elif isinstance(self.controller, DDLQRController):
@@ -128,13 +200,14 @@ class Simulation:
             J_window = self.J_hist[window_start:self.control_step]
 
             # Solve SDP
-            success, W_tilde_k = self.controller.solve_sdp_for_cost(z_window, J_window)
+            success, self.W_tilde_k = self.controller.solve_sdp_for_cost(z_window, J_window)
             if success:
                 # Compute new gain
                 success = self.controller.compute_optimal_gain(
                     self.controller.Sigma_k,
                     self.controller.hat_Sigma_k,
-                    W_tilde_k
+                    self.W_tilde_k,
+                    beta = 70.6 #3.6570642935721427 #70.6291
                 )
                 if success:
                     self.M_k_step = self.controller.hat_Sigma_k @ linalg.inv(self.controller.Sigma_k)

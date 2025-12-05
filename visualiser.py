@@ -109,8 +109,55 @@ class Visualizer:
         
         plt.figure(figsize=(6, 4))
         plt.plot(t_sim_M, M_error, 
-                 label=r'$|| [\hat{A}_k, \hat{B}_k] - [A_d, B_d] ||_F$',
+                 label=r'$|| [\Sigma^{wx}_{k}  \Sigma^{wu}_{k}]\Sigma_{k}^{-1}||$',
                  linewidth=0.8, color='red')
+        plt.ylabel('System Estimation Error')
+        plt.xlabel('Time (s)')
+        plt.yscale('log')
+        plt.xlim(0, self.T_total)
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(save_path)
+        print(f"System estimation error plot saved to '{save_path}'")
+
+    def plot_rho(self, M_error, save_path='lqr_system_estimation_error.png'):
+        """Plots system estimation error - matches original exactly."""
+        M_error = np.array(M_error)  # Ensure M_error is a NumPy array
+        t_sim_M = np.arange(len(M_error)) * self.h_sim
+
+        plt.figure(figsize=(6, 4))
+
+        # Add horizontal line at rho = 1e-8 with shading below
+        rho_threshold = 1e-8
+        plt.axhline(y=rho_threshold, color='blue', linestyle='--', linewidth=1.0,
+                    label=r'$\rho_{max} = 10^{-8}$')
+        plt.axhspan(plt.ylim()[0], rho_threshold, alpha=0.2, color='lightblue')
+
+        plt.plot(t_sim_M, M_error,
+                 label=r'$|| [\Sigma^{wx}_{k}  \Sigma^{wu}_{k}]\Sigma_{k}^{-1}||$',
+                 linewidth=0.8, color='red')
+
+        # # Find intersection point where M_error crosses rho_threshold
+        # intersection_idx = np.where(M_error <= rho_threshold)[0]
+        # if len(intersection_idx) > 0:
+        #     # Get the first crossing point
+        #     idx = intersection_idx[0]
+        #     t_intersect = t_sim_M[idx]
+
+        #     # Add vertical line at intersection
+        #     plt.axvline(x=t_intersect, color='green', linestyle=':', linewidth=1.0, alpha=0.7)
+
+        #     # Add annotation
+        #     plt.annotate(f't = {t_intersect:.2f}s',
+        #                 xy=(t_intersect, rho_threshold),
+        #                 xytext=(t_intersect + 0.5, rho_threshold * 10),
+        #                 arrowprops=dict(arrowstyle='->', color='green', lw=1.5),
+        #                 fontsize=9,
+        #                 color='green')
+
+        #     print(f"Intersection point: t = {t_intersect:.2f}s")
+
         plt.ylabel('System Estimation Error')
         plt.xlabel('Time (s)')
         plt.yscale('log')
@@ -210,6 +257,7 @@ class Visualizer:
         plt.xlabel('Time (s)')
         plt.yscale('log')
         plt.xlim(0, self.T_total)
+        # plt.ylim(top=0.8)
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
@@ -218,6 +266,26 @@ class Visualizer:
 
         print(f"\nFinal estimation error (DD-SDLQR): {M_error_ddsd[-1]:.6e}")
         print(f"Final estimation error (DD-LQR): {M_error_dd[-1]:.6e}")
+
+    def plot_bound_comparison(self, bound_lhs_hist, bound_rhs_hist,
+                               save_path='bound_comparison.png'):
+        bound_lhs_hist = np.array(bound_lhs_hist).flatten()
+        bound_rhs_hist = np.array(bound_rhs_hist).flatten()
+        t_sim = np.arange(len(bound_lhs_hist)) * self.h_sim
+
+        plt.figure(figsize=(6, 4))
+        plt.plot(t_sim, bound_lhs_hist, label='LHS',
+                 linewidth=1.2, color='blue', alpha=0.8)
+        plt.plot(t_sim, bound_rhs_hist, label='RHS',
+                 linewidth=1.2, color='red', linestyle='--', alpha=0.8)
+        plt.xlabel('Time (s)')
+        plt.xlim(0, self.T_total)
+        plt.ylim(top=0.55, bottom=0)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.title("Corollary 1's Inequality: Simplified System")
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
 
     def show_all(self):
         """Display all matplotlib figures."""
