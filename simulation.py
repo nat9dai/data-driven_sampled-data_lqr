@@ -4,7 +4,7 @@ from scipy import linalg
 from controller import DDSDLQRController, SDLQRController, DDLQRController
 
 class Simulation:
-    def __init__(self, system, controller, x0, sim_time, h_sim, epsilon_std=0.0, w_k=None, random_seed=None):
+    def __init__(self, system, controller, x0, sim_time, h_sim, epsilon_std=0.0, w_std=None, random_seed=None):
         self.system = system
         self.controller = controller
         self.x0 = x0
@@ -17,10 +17,10 @@ class Simulation:
         self.state_trajectory[:, 0] = np.squeeze(x0)
         self.control_step = 0  # Track control steps
         self.epsilon_std = epsilon_std  # Exploration noise
-        if w_k is None:
-            self.w_k = np.zeros((system.n, 1))  # No perturbation by default
+        if w_std is None:
+            self.w_std = np.zeros((system.n, 1))  # No perturbation by default
         else:
-            self.w_k = w_k  # Additive purturbation (if any)
+            self.w_std = w_std / (self.h_control / self.h_sim)  # Standard deviation for additive perturbation (scaled for simulation timestep)
 
         # No additive process noise - model mismatch is handled through parameter uncertainty
         # self.Sigma_w = np.zeros((system.n, system.n))
@@ -81,8 +81,9 @@ class Simulation:
             alpha = beta**2 + (1/(1-beta**2/gamma**2))*(1-beta**2/(1-2*beta**2*rho*(rho+2))) # 5038.860337827362
             W_xx_k = self.controller.W_true[:self.system.n, :self.system.n]
 
-            # Initial RHS value: gamma^2/alpha * ||Bd*epsilon_k + w_k||_{W_h}^2
-            perturbation = self.Bd_true @ epsilon_k + self.w_k
+            # initial RHS value: gamma^2/alpha * ||Bd*epsilon_k + w_k||_{W_h}^2
+            w_k = np.random.randn(self.system.n, 1) * self.w_std  # sample Gaussian noise
+            perturbation = self.Bd_true @ epsilon_k + w_k
             rhs_value = (gamma**2/alpha) * (perturbation.T @ W_xx_k @ perturbation)
             self.bound_rhs_values.append(rhs_value)
             self.x_for_rhs_bound.append(x_k_control)
@@ -95,12 +96,12 @@ class Simulation:
             )
             self.bound_rhs_hist.append(self.bound_rhs)
 
-            # Initial LHS value
+            # initial LHS value
             block_I_K = np.vstack((np.eye(self.system.n), self.controller.K))
             W_aug = block_I_K.T @ self.controller.W_true @ block_I_K
             lhs_value = x_k_control.T @ W_aug @ x_k_control
             self.bound_lhs_values.append(lhs_value)
-            # Sum last 10 values
+            # sum last 10 values
             self.bound_lhs = sum(self.bound_lhs_values[max(0, len(self.bound_lhs_values)-bound_window):])
             self.bound_lhs_hist.append(self.bound_lhs)
         elif isinstance(self.controller, SDLQRController):
@@ -109,8 +110,9 @@ class Simulation:
             pass
 
         for k in range(self.num_steps):
-            # Use the SAME control throughout the control period (zero-order hold)
-            x_sim = self.system.step(x_sim, u_k, self.h_sim) + self.w_k
+            # zero-order hold
+            w_k = np.random.randn(self.system.n, 1) * self.w_std  # sample new Gaussian noise at each step
+            x_sim = self.system.step(x_sim, u_k, self.h_sim) + w_k
 
             self.state_trajectory[:, k + 1] = np.squeeze(x_sim)
             self.control_trajectory[:, k] = np.squeeze(u_k)
@@ -123,8 +125,8 @@ class Simulation:
                     self._update_ddsdlqr(x_k_control, u_k, x_sim)
 
                     W_xx_k = self.controller.W_true[:self.system.n, :self.system.n]
-                    # Add new RHS value: gamma^2/alpha * ||Bd*epsilon_k + w_k||_{W_h}^2
-                    perturbation = self.Bd_true @ epsilon_k + self.w_k
+                    # add new RHS value: gamma^2/alpha * ||Bd*epsilon_k + w_k||_{W_h}^2
+                    perturbation = self.Bd_true @ epsilon_k + w_k
                     rhs_value = (gamma**2/alpha) * (perturbation.T @ W_xx_k @ perturbation)
                     self.bound_rhs_values.append(rhs_value)
                     self.x_for_rhs_bound.append(x_k_control)

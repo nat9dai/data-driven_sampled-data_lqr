@@ -46,13 +46,14 @@ x0 = np.array([[1.0], [0.5], [0.0], [0.0]])
 # x0 = np.array([[1.0], [0.0]])
 sim_time = 60
 
-# Pruturbation due to unmodelled dynamics (if any)
-# w_k = np.array([[0.0], [0.0], [0.0], [0.0]])
-w_k = np.zeros((plant_1.n, 1))
-# w_k = np.array([[0.001], [-0.001]])
+# Perturbation due to unmodelled dynamics (if any)
+# Specify standard deviation for Gaussian noise (zero-mean) for each state
+w_std = np.array([[0.01], [0.01], [0.01], [0.01]])  # Standard deviation for each state component
+# w_std = np.zeros((plant_1.n, 1))
+# w_std = np.array([[0.001], [0.001]])
 
 # Create simulations
-ddsd_simulation = Simulation(plant_1, ddsd_controller, x0, sim_time, h_sim, epsilon_std=epsilon_std, w_k=w_k, random_seed=42)
+ddsd_simulation = Simulation(plant_1, ddsd_controller, x0, sim_time, h_sim, epsilon_std=epsilon_std, w_std=w_std, random_seed=42)
 # sd_simulation = Simulation(plant_2, sd_controller, x0, sim_time, h_sim, random_seed=42)
 # dd_simulation = Simulation(plant_3, dd_controller, x0, sim_time, h_sim, epsilon_std=epsilon_std, random_seed=42)
 
@@ -73,8 +74,8 @@ viz = Visualizer(h_sim, sim_time)
 
 # Generate plots for DD-SDLQR
 print("Generating DD-SDLQR plots...")
-# viz.plot_state_trajectories(ddsd_states, save_path='plots/dd_sdlqr_states.png')
-# viz.plot_input_trajectory(ddsd_controls, save_path='plots/dd_sdlqr_input.png')
+viz.plot_state_trajectories(ddsd_states, save_path='plots/dd_sdlqr_states.png')
+viz.plot_input_trajectory(ddsd_controls, save_path='plots/dd_sdlqr_input.png')
 # viz.plot_system_error(ddsd_simulation.M_error, save_path='plots/dd_sdlqr_system_error.png')
 viz.plot_rho(ddsd_simulation.M_error, save_path='plots/dd_sdlqr_rho.png')
 viz.plot_bound_comparison(ddsd_simulation.bound_lhs_hist, ddsd_simulation.bound_rhs_hist, save_path='plots/dd_sdlqr_bound_comparison.png')

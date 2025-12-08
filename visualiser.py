@@ -290,37 +290,37 @@ class Visualizer:
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
 
-        # Save as TikZ
-        tikz_path = save_path.replace('.png', '.tex')
-        try:
-            # Fix for matplotlib 3.7+ compatibility with tikzplotlib
-            fig = plt.gcf()
-            for ax in fig.get_axes():
-                # Fix Line2D objects
-                for line in ax.get_lines():
-                    if not hasattr(line, '_us_dashSeq'):
-                        # Get dash sequence from linestyle
-                        dash_style = line.get_linestyle()
-                        if dash_style == '--':
-                            line._us_dashSeq = [6.0, 6.0]
-                        elif dash_style == ':':
-                            line._us_dashSeq = [1.0, 3.0]
-                        elif dash_style == '-.':
-                            line._us_dashSeq = [3.0, 5.0, 1.0, 5.0]
-                        else:
-                            line._us_dashSeq = None
-                        line._us_dashOffset = 0
+        # # Save as TikZ
+        # tikz_path = save_path.replace('.png', '.tex')
+        # try:
+        #     # Fix for matplotlib 3.7+ compatibility with tikzplotlib
+        #     fig = plt.gcf()
+        #     for ax in fig.get_axes():
+        #         # Fix Line2D objects
+        #         for line in ax.get_lines():
+        #             if not hasattr(line, '_us_dashSeq'):
+        #                 # Get dash sequence from linestyle
+        #                 dash_style = line.get_linestyle()
+        #                 if dash_style == '--':
+        #                     line._us_dashSeq = [6.0, 6.0]
+        #                 elif dash_style == ':':
+        #                     line._us_dashSeq = [1.0, 3.0]
+        #                 elif dash_style == '-.':
+        #                     line._us_dashSeq = [3.0, 5.0, 1.0, 5.0]
+        #                 else:
+        #                     line._us_dashSeq = None
+        #                 line._us_dashOffset = 0
 
-                # Fix Legend object
-                legend = ax.get_legend()
-                if legend and not hasattr(legend, '_ncol'):
-                    legend._ncol = legend._ncols
+        #         # Fix Legend object
+        #         legend = ax.get_legend()
+        #         if legend and not hasattr(legend, '_ncol'):
+        #             legend._ncol = legend._ncols
 
-            tikzplotlib.save(tikz_path)
-            print(f"Bound comparison plot saved to '{save_path}' and '{tikz_path}'")
-        except (AttributeError, Exception) as e:
-            print(f"Bound comparison plot saved to '{save_path}'")
-            print(f"Warning: Could not save TikZ format due to tikzplotlib compatibility issue: {e}")
+        #     tikzplotlib.save(tikz_path)
+        #     print(f"Bound comparison plot saved to '{save_path}' and '{tikz_path}'")
+        # except (AttributeError, Exception) as e:
+        #     print(f"Bound comparison plot saved to '{save_path}'")
+        #     print(f"Warning: Could not save TikZ format due to tikzplotlib compatibility issue: {e}")
 
     def show_all(self):
         """Display all matplotlib figures."""

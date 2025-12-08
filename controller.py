@@ -200,7 +200,7 @@ class DDSDLQRController(DDLQRController):
         constraints += [Q - W_tilde_k >> 0]
 
         # Objective: maximize trace(P) to get stabilizing solution
-        # (minimizing would give P≈0, which doesn't stabilize the system)
+        # (minimizing would give P->0, which doesn't stabilize the system)
         objective = cp.Maximize(cp.trace(P))
 
         prob = cp.Problem(objective, constraints)
