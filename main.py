@@ -21,8 +21,8 @@ epsilon_std = 0.1  # Exploration noise
 np.random.seed(42)
 
 # Create three separate plants for three controllers
-plant_1 = SimpleSystem()
-# plant_1 = CartPole(cart_pole_params)
+# plant_1 = SimpleSystem()
+plant_1 = CartPole(cart_pole_params)
 # plant_2 = CartPole(cart_pole_params)
 # plant_3 = CartPole(cart_pole_params)
 
@@ -42,9 +42,9 @@ ddsd_controller = DDSDLQRController(plant_1, Wx, Wu, h_control, L, lambda_, Sigm
 # dd_controller = DDLQRController(plant_3, Wx, Wu, h_control)
 
 # Initial condition and simulation time
-# x0 = np.array([[1.0], [0.5], [0.0], [0.0]])
-x0 = np.array([[1.0], [0.0]])
-sim_time = 30
+x0 = np.array([[1.0], [0.5], [0.0], [0.0]])
+# x0 = np.array([[1.0], [0.0]])
+sim_time = 60
 
 # Pruturbation due to unmodelled dynamics (if any)
 # w_k = np.array([[0.0], [0.0], [0.0], [0.0]])

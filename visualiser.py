@@ -1,4 +1,5 @@
 import numpy as np
+import tikzplotlib
 import matplotlib.pyplot as plt
 
 # Written by Claude Sonnet 4.5 with minimal edits.
@@ -269,6 +270,7 @@ class Visualizer:
 
     def plot_bound_comparison(self, bound_lhs_hist, bound_rhs_hist,
                                save_path='bound_comparison.png'):
+        
         bound_lhs_hist = np.array(bound_lhs_hist).flatten()
         bound_rhs_hist = np.array(bound_rhs_hist).flatten()
         t_sim = np.arange(len(bound_lhs_hist)) * self.h_sim
@@ -280,12 +282,45 @@ class Visualizer:
                  linewidth=1.2, color='red', linestyle='--', alpha=0.8)
         plt.xlabel('Time (s)')
         plt.xlim(0, self.T_total)
-        plt.ylim(top=0.55, bottom=0)
+        # plt.ylim(top=0.55, bottom=0)
+        plt.yscale('log')
         plt.legend()
         plt.grid(True, alpha=0.3)
-        plt.title("Corollary 1's Inequality: Simplified System")
+        plt.title("Corollary 1's Inequality: Cart Pole")
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
+
+        # Save as TikZ
+        tikz_path = save_path.replace('.png', '.tex')
+        try:
+            # Fix for matplotlib 3.7+ compatibility with tikzplotlib
+            fig = plt.gcf()
+            for ax in fig.get_axes():
+                # Fix Line2D objects
+                for line in ax.get_lines():
+                    if not hasattr(line, '_us_dashSeq'):
+                        # Get dash sequence from linestyle
+                        dash_style = line.get_linestyle()
+                        if dash_style == '--':
+                            line._us_dashSeq = [6.0, 6.0]
+                        elif dash_style == ':':
+                            line._us_dashSeq = [1.0, 3.0]
+                        elif dash_style == '-.':
+                            line._us_dashSeq = [3.0, 5.0, 1.0, 5.0]
+                        else:
+                            line._us_dashSeq = None
+                        line._us_dashOffset = 0
+
+                # Fix Legend object
+                legend = ax.get_legend()
+                if legend and not hasattr(legend, '_ncol'):
+                    legend._ncol = legend._ncols
+
+            tikzplotlib.save(tikz_path)
+            print(f"Bound comparison plot saved to '{save_path}' and '{tikz_path}'")
+        except (AttributeError, Exception) as e:
+            print(f"Bound comparison plot saved to '{save_path}'")
+            print(f"Warning: Could not save TikZ format due to tikzplotlib compatibility issue: {e}")
 
     def show_all(self):
         """Display all matplotlib figures."""

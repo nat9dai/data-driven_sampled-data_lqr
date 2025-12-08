@@ -75,9 +75,9 @@ class Simulation:
             J_k = self.controller.compute_true_Jk(x_k_control, u_k)
             self.J_hist.append(J_k)
 
-            beta = 3.6 #3.6570642935721427 #3 # 70.6
-            rho = 6e-4 #0.0027739304327549044 #1e-8
-            gamma = 6.63*beta # 0.1, 0.2, 0.5*beta try
+            beta = 70.6 #3.6570642935721427 #3 # 70.6
+            rho = 1e-16 #0.0027739304327549044 #1e-8
+            gamma = 99.84*beta # 0.1, 0.2, 0.5*beta try
             alpha = beta**2 + (1/(1-beta**2/gamma**2))*(1-beta**2/(1-2*beta**2*rho*(rho+2))) # 5038.860337827362
             W_xx_k = self.controller.W_true[:self.system.n, :self.system.n]
 
