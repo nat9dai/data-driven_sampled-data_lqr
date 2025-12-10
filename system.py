@@ -42,6 +42,6 @@ class CartPole(System):
 # for testing purposes
 class SimpleSystem(System):
     def __init__(self):
-        A = np.array([[0.0, 1.0], [-2.0, -3.0]])
-        B = np.array([[0.0], [1.0]])
+        A = np.array([[0.0, 3.0], [2.0, 1.0]])
+        B = np.array([[2.0], [3.0]])
         super().__init__(A, B)
