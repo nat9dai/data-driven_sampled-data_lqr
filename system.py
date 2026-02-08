@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import linalg
+from cartpole_nonlinear import CartPoleModel
 
 class System():
     def __init__(self, A, B, n=None, m=None):
@@ -37,4 +38,22 @@ class CartPole(System):
 
         B = np.array([[0.0], [0.0], [1.0/m_c], [1.0/(m_c*l)]])
         
+        super().__init__(A, B)
+
+        self.cart_pole_model = CartPoleModel(
+            gravity_acceleration=g,
+            length=l,
+            mass_cart=m_c,
+            mass_pole=m_p
+        )
+
+    def step(self, x_k, u_k, h):
+        """Performs one step of discrete-time dynamics using RK4 integration."""
+        return self.cart_pole_model.dynamics_dt(x_k.flatten(), u_k.flatten(), h)
+
+# for testing purposes
+class SimpleSystem(System):
+    def __init__(self):
+        A = np.array([[0.0, 3.0], [2.0, 1.0]])
+        B = np.array([[2.0], [3.0]])
         super().__init__(A, B)
