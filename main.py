@@ -5,6 +5,7 @@ from system import CartPole, SimpleSystem
 from controller import SDLQRController, DDSDLQRController, DDLQRController
 from simulation import Simulation
 from visualiser import Visualizer
+from visualiser_tikz import TikZVisualizer
 
 # System parameters
 cart_pole_params = {
@@ -72,7 +73,7 @@ print("Simulations complete!\n")
 os.makedirs('plots/simplified', exist_ok=True)
 
 # Create visualizer with system information for context-aware plotting
-viz = Visualizer(h_sim, sim_time, system=plant_1)
+viz = Visualizer(h_sim, sim_time)
 
 # Generate plots for DD-SDLQR
 # print("Generating DD-SDLQR plots...")
@@ -99,8 +100,12 @@ print("\nGenerating comparison plots...")
 #                    save_path='plots/simplified/state_norm_comparison.png')
 viz.plot_three_way_comparison(ddsd_states, dd_states, sd_states,
                               save_path='plots/simplified/three_way_state_norm_comparison.png')
-viz.plot_error_comparison(ddsd_simulation.M_error, dd_simulation.M_error,
-                         save_path='plots/simplified/system_error_comparison.png')
+# viz.plot_error_comparison(ddsd_simulation.M_error, dd_simulation.M_error,
+#                          save_path='plots/simplified/system_error_comparison.png')
+
+tikz_viz = TikZVisualizer(h_sim, sim_time)
+tikz_viz.plot_three_way_comparison(ddsd_states, dd_states, sd_states,
+                                   save_path='plots/tikz/three_way_state_norm_comparison.tex')
 
 # Display all plots
 viz.show_all()
