@@ -1,5 +1,4 @@
 import numpy as np
-# import tikzplotlib
 import matplotlib.pyplot as plt
 
 # Written by Claude Sonnet 4.5 with minimal edits.
@@ -16,63 +15,29 @@ class Visualizer:
     A class for visualizing control system trajectories.
     Matches the original plotting style exactly.
     """
-
-    def __init__(self, h_sim: float, T_total: float, system=None):
+    
+    def __init__(self, h_sim: float, T_total: float):
         """
         Initialize the Visualizer.
-
+        
         Args:
             h_sim: Simulation time step
             T_total: Total simulation time
-            system: System object (CartPole or SimpleSystem) for context-aware plotting
         """
         self.h_sim = h_sim
         self.T_total = T_total
-        self.system = system
         setup_plot_style()
 
-    def _get_state_labels(self, n_states):
-        """
-        Returns appropriate state labels based on system type.
-
-        Args:
-            n_states: Number of states in the system
-
-        Returns:
-            List of state labels
-        """
-        if self.system is not None:
-            # Check if it's CartPole (has 4 states)
-            if hasattr(self.system, '__class__') and self.system.__class__.__name__ == 'CartPole':
-                return [
-                    r"Cart's Position (m)",
-                    r"Pole's angle (rad)",
-                    r"Cart's Velocity (m/s)",
-                    r"Pole's angular velocity (rad/s)"
-                ]
-            # Check if it's SimpleSystem (has 2 states)
-            elif hasattr(self.system, '__class__') and self.system.__class__.__name__ == 'SimpleSystem':
-                return [r"$x_1$: state 1", r"$x_2$: state 2"]
-
-        # Generic fallback for any number of states
-        return [f"$x_{i+1}$" for i in range(n_states)]
-
     def plot_state_trajectories(self, X_sim_hist, save_path='lqr_state_trajectories.png'):
-        """Plots state trajectories - works for any system."""
+        """Plots state trajectories - matches original exactly."""
         X_sim = X_sim_hist.T  # Convert to (N, n)
         t_sim = np.arange(len(X_sim)) * self.h_sim
-        n_states = X_sim.shape[1]
-
-        # Get appropriate labels based on system type
-        state_labels = self._get_state_labels(n_states)
-
-        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
         
         plt.figure(figsize=(6, 4))
-        for i in range(n_states):
-            color = colors[i % len(colors)]
-            plt.plot(t_sim, X_sim[:, i], label=state_labels[i], linewidth=1.2, color=color)
-
+        plt.plot(t_sim, X_sim[:, 0], label=r"Cart's Position (m)", linewidth=0.8)
+        plt.plot(t_sim, X_sim[:, 1], label=r"Pole's angle (rad)", linewidth=0.8)
+        plt.plot(t_sim, X_sim[:, 2], label=r"Cart's Velocity (m/s)", linewidth=0.8)
+        plt.plot(t_sim, X_sim[:, 3], label=r"Pole's angular velocity (rad/s)", linewidth=0.8)
         plt.ylabel('State Values')
         plt.xlabel('Time (s)')
         plt.xlim(0, self.T_total)
@@ -83,28 +48,17 @@ class Visualizer:
         print(f"State trajectories plot saved to '{save_path}'")
     
     def plot_input_trajectory(self, U_sim_hist, save_path='lqr_input_trajectory.png'):
-        """Plots input trajectory - works for any system."""
+        """Plots input trajectory - matches original exactly."""
         U_sim = U_sim_hist.T  # Convert to (N-1, m)
         m = U_sim.shape[1]
         t_sim = np.arange(len(U_sim)) * self.h_sim
-
-        # Determine y-axis label based on system type
-        if self.system is not None and hasattr(self.system, '__class__'):
-            if self.system.__class__.__name__ == 'CartPole':
-                ylabel = 'Input Force (N)'
-            else:
-                ylabel = 'Control Input'
-        else:
-            ylabel = 'Control Input'
-
+        
         plt.figure(figsize=(6, 4))
         for i in range(m):
-            label = f'$u_{i+1}$' if m > 1 else '$u$'
-            plt.plot(t_sim, U_sim[:, i], label=label, linewidth=1.2, color='blue')
-        plt.ylabel(ylabel)
+            plt.plot(t_sim, U_sim[:, i], label='$u$', linewidth=0.8, color='blue')
+        plt.ylabel('Input Force (N)')
         plt.xlabel('Time (s)')
         plt.xlim(0, self.T_total)
-        plt.legend() if m > 1 else None
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(save_path)
@@ -135,7 +89,7 @@ class Visualizer:
         plt.plot(t_sim, state_norm_proposed, label='Data-driven sampled-data LQR',
                  linewidth=1.2, color='blue', alpha=0.8)
         plt.plot(t_sim, state_norm_ideal, label='Ideal LQR (Known Model)',
-                 linewidth=1.2, color='red', linestyle='--', alpha=1.0)
+                 linewidth=1.2, color='red', linestyle='--', alpha=0.8)
         plt.ylabel('State Norm')
         plt.xlabel('Time (s)')
         plt.xlim(0, self.T_total)
@@ -155,55 +109,8 @@ class Visualizer:
         
         plt.figure(figsize=(6, 4))
         plt.plot(t_sim_M, M_error, 
-                 label=r'$|| [\Sigma^{wx}_{k}  \Sigma^{wu}_{k}]\Sigma_{k}^{-1}||$',
-                 linewidth=1.2, color='red')
-        plt.ylabel('System Estimation Error')
-        plt.xlabel('Time (s)')
-        plt.yscale('log')
-        plt.xlim(0, self.T_total)
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plt.savefig(save_path)
-        print(f"System estimation error plot saved to '{save_path}'")
-
-    def plot_rho(self, M_error, save_path='lqr_system_estimation_error.png'):
-        """Plots system estimation error - matches original exactly."""
-        M_error = np.array(M_error)  # Ensure M_error is a NumPy array
-        t_sim_M = np.arange(len(M_error)) * self.h_sim
-
-        plt.figure(figsize=(6, 4))
-
-        # Add horizontal line at rho = 1e-8 with shading below
-        rho_threshold = 0.0025698100922393846 #0.0012996052587763633
-        plt.axhline(y=rho_threshold, color='blue', linestyle='--', linewidth=1.2,
-                    label=r'$\rho_{max} = 2.57 \times 10^{-3}$')
-        plt.axhspan(plt.ylim()[0], rho_threshold, alpha=0.2, color='lightblue')
-
-        plt.plot(t_sim_M, M_error,
-                 label=r'$|| [\Sigma^{wx}_{k}  \Sigma^{wu}_{k}]\Sigma_{k}^{-1}||$',
-                 linewidth=1.2, color='red')
-
-        # # Find intersection point where M_error crosses rho_threshold
-        # intersection_idx = np.where(M_error <= rho_threshold)[0]
-        # if len(intersection_idx) > 0:
-        #     # Get the first crossing point
-        #     idx = intersection_idx[0]
-        #     t_intersect = t_sim_M[idx]
-
-        #     # Add vertical line at intersection
-        #     plt.axvline(x=t_intersect, color='green', linestyle=':', linewidth=1.2, alpha=0.7)
-
-        #     # Add annotation
-        #     plt.annotate(f't = {t_intersect:.2f}s',
-        #                 xy=(t_intersect, rho_threshold),
-        #                 xytext=(t_intersect + 0.5, rho_threshold * 10),
-        #                 arrowprops=dict(arrowstyle='->', color='green', lw=1.5),
-        #                 fontsize=9,
-        #                 color='green')
-
-        #     print(f"Intersection point: t = {t_intersect:.2f}s")
-
+                 label=r'$|| [\hat{A}_k, \hat{B}_k] - [A_d, B_d] ||_F$',
+                 linewidth=0.8, color='red')
         plt.ylabel('System Estimation Error')
         plt.xlabel('Time (s)')
         plt.yscale('log')
@@ -222,8 +129,8 @@ class Visualizer:
 
         plt.figure(figsize=(6, 4))
         plt.plot(control_steps, times_ms, 'o-', label='Per-step time',
-                 linewidth=1.2, markersize=3, alpha=0.6)
-        plt.plot(control_steps, running_avg, 'r-', label='Running average', linewidth=1.2)
+                 linewidth=0.8, markersize=3, alpha=0.6)
+        plt.plot(control_steps, running_avg, 'r-', label='Running average', linewidth=1.5)
         plt.ylabel('Computation Time (ms)')
         plt.xlabel('Control Step')
         plt.xlim(0, len(times_ms) - 1)
@@ -279,51 +186,6 @@ class Visualizer:
         print(f"Performance ratio (DD-SDLQR/SD-LQR): {state_norm_ddsd[-1]/state_norm_sd[-1]:.4f}")
         print(f"Performance ratio (DD-LQR/SD-LQR): {state_norm_dd[-1]/state_norm_sd[-1]:.4f}")
 
-    def plot_state_subplots(self, X_sim_ddsd, X_sim_dd, X_sim_sd,
-                            save_path='state_subplots.png'):
-        """
-        Plots each state trajectory in a 2x2 subplot, comparing all three controllers.
-
-        Args:
-            X_sim_ddsd: DD-SDLQR states (n × N)
-            X_sim_dd: DD-LQR states (n × N)
-            X_sim_sd: SD-LQR states (n × N)
-            save_path: Where to save the plot
-        """
-        # Convert to (N, n) format
-        if X_sim_ddsd.shape[0] < X_sim_ddsd.shape[1]:
-            X_sim_ddsd = X_sim_ddsd.T
-        if X_sim_dd.shape[0] < X_sim_dd.shape[1]:
-            X_sim_dd = X_sim_dd.T
-        if X_sim_sd.shape[0] < X_sim_sd.shape[1]:
-            X_sim_sd = X_sim_sd.T
-
-        n_states = X_sim_ddsd.shape[1]
-        t_sim = np.arange(len(X_sim_ddsd)) * self.h_sim
-        state_labels = self._get_state_labels(n_states)
-
-        fig, axes = plt.subplots(2, 2, figsize=(10, 7))
-        axes = axes.flatten()
-
-        for i in range(n_states):
-            ax = axes[i]
-            ax.plot(t_sim, X_sim_ddsd[:, i], label='DD-SDLQR',
-                    linewidth=1.2, color='blue', alpha=0.8)
-            ax.plot(t_sim, X_sim_dd[:, i], label='DD-LQR',
-                    linewidth=1.2, color='green', alpha=0.8)
-            ax.plot(t_sim, X_sim_sd[:, i], label='SD-LQR (Known Model)',
-                    linewidth=1.2, color='red', linestyle='--', alpha=0.8)
-            ax.set_ylabel(state_labels[i])
-            ax.set_xlabel('Time (s)')
-            ax.set_xlim(0, self.T_total)
-            ax.grid(True, alpha=0.3)
-            if i == 0:
-                ax.legend(fontsize=8)
-
-        fig.tight_layout()
-        fig.savefig(save_path, dpi=300)
-        print(f"\nState subplots saved to '{save_path}'")
-
     def plot_error_comparison(self, M_error_ddsd, M_error_dd,
                              save_path='system_error_comparison.png'):
         """
@@ -348,7 +210,6 @@ class Visualizer:
         plt.xlabel('Time (s)')
         plt.yscale('log')
         plt.xlim(0, self.T_total)
-        # plt.ylim(top=0.8)
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
@@ -357,72 +218,6 @@ class Visualizer:
 
         print(f"\nFinal estimation error (DD-SDLQR): {M_error_ddsd[-1]:.6e}")
         print(f"Final estimation error (DD-LQR): {M_error_dd[-1]:.6e}")
-
-    def plot_bound_comparison(self, bound_lhs_hist, bound_rhs_hist,
-                               save_path='bound_comparison.png'):
-
-        bound_lhs_hist = np.array(bound_lhs_hist).flatten()
-        bound_rhs_hist = np.array(bound_rhs_hist).flatten()
-        t_sim = np.arange(len(bound_lhs_hist)) * self.h_sim
-
-        # Determine title based on system type
-        # if self.system is not None and hasattr(self.system, '__class__'):
-        #     system_name = self.system.__class__.__name__
-        #     if system_name == 'CartPole':
-        #         title = "Corollary 1's Inequality: Cart Pole"
-        #     elif system_name == 'SimpleSystem':
-        #         title = "Corollary 1's Inequality: Simple System"
-        #     else:
-        #         title = "Corollary 1's Inequality"
-        # else:
-        #     title = "Corollary 1's Inequality"
-
-        plt.figure(figsize=(6, 4))
-        plt.plot(t_sim, bound_lhs_hist, label='LHS',
-                 linewidth=1.2, color='blue', alpha=0.8)
-        plt.plot(t_sim, bound_rhs_hist, label='RHS',
-                 linewidth=1.2, color='red', linestyle='--', alpha=0.8)
-        plt.xlabel('Time (s)')
-        plt.xlim(0, self.T_total)
-        # plt.ylim(top=0.55, bottom=0)
-        plt.yscale('log')
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        # plt.title(title)
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=300)
-
-        # # Save as TikZ
-        # tikz_path = save_path.replace('.png', '.tex')
-        # try:
-        #     # Fix for matplotlib 3.7+ compatibility with tikzplotlib
-        #     fig = plt.gcf()
-        #     for ax in fig.get_axes():
-        #         # Fix Line2D objects
-        #         for line in ax.get_lines():
-        #             if not hasattr(line, '_us_dashSeq'):
-        #                 # Get dash sequence from linestyle
-        #                 dash_style = line.get_linestyle()
-        #                 if dash_style == '--':
-        #                     line._us_dashSeq = [6.0, 6.0]
-        #                 elif dash_style == ':':
-        #                     line._us_dashSeq = [1.0, 3.0]
-        #                 elif dash_style == '-.':
-        #                     line._us_dashSeq = [3.0, 5.0, 1.0, 5.0]
-        #                 else:
-        #                     line._us_dashSeq = None
-        #                 line._us_dashOffset = 0
-
-        #         # Fix Legend object
-        #         legend = ax.get_legend()
-        #         if legend and not hasattr(legend, '_ncol'):
-        #             legend._ncol = legend._ncols
-
-        #     tikzplotlib.save(tikz_path)
-        #     print(f"Bound comparison plot saved to '{save_path}' and '{tikz_path}'")
-        # except (AttributeError, Exception) as e:
-        #     print(f"Bound comparison plot saved to '{save_path}'")
-        #     print(f"Warning: Could not save TikZ format due to tikzplotlib compatibility issue: {e}")
 
     def show_all(self):
         """Display all matplotlib figures."""
