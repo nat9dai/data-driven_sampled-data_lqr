@@ -44,13 +44,13 @@ dd_controller = DDLQRController(plant_3, Wx, Wu, h_control)
 ddsd_controller = DDSDLQRController(plant_1, Wx, Wu, h_control, L, lambda_, Sigma_zero)
 
 # Initial condition and simulation time
-x0 = np.array([[1.0], [0.5], [0.0], [0.0]])
+x0 = np.array([[1.0], [0.5], [0.5], [0.5]])
 # x0 = np.array([[1.0], [0.0]])
 sim_time = 15.0  # seconds
 
 # Perturbation due to unmodelled dynamics (if any)
 # Specify standard deviation for Gaussian noise (zero-mean) for each state
-w_std = np.array([[1e-4], [1e-4], [1e-4], [1e-4]])  # Standard deviation for each state component
+w_std = np.array([[1e-2], [1e-2], [1e-2], [1e-2]])  # Standard deviation for each state component
 # w_std = np.zeros((plant_1.n, 1))
 # w_std = np.array([[1e-4], [1e-4]])
 
@@ -97,6 +97,8 @@ viz = Visualizer(h_sim, sim_time, system=plant_1)
 print("\nGenerating comparison plots...")
 # viz.plot_comparison(ddsd_states, sd_states,
 #                    save_path='plots/simplified/state_norm_comparison.png')
+viz.plot_state_subplots(ddsd_states, dd_states, sd_states,
+                        save_path='plots/simplified/state_subplots.png')
 viz.plot_three_way_comparison(ddsd_states, dd_states, sd_states,
                               save_path='plots/simplified/three_way_state_norm_comparison.png')
 viz.plot_error_comparison(ddsd_simulation.M_error, dd_simulation.M_error,

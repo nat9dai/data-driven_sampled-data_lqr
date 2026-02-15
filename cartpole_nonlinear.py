@@ -23,12 +23,12 @@ class CartPoleModel:
         """
         dx1 = x[2]
         dx2 = x[3]
-        dx3 = (-self.mass_pole * self.length * np.sin(x[1]) * x[3]**2
+        dx3 = (self.mass_pole * self.length * np.sin(x[1]) * x[3]**2
                + self.mass_pole * self.gravity_acceleration * np.sin(x[1]) * np.cos(x[1])
                + u) / (self.mass_cart + self.mass_pole * np.sin(x[1])**2)
         dx4 = (-self.mass_pole * self.length * np.sin(x[1]) * np.cos(x[1]) * x[3]**2
-               + (self.mass_cart + self.mass_pole) * self.gravity_acceleration * np.sin(x[1])
-               + u * np.cos(x[1])) / (self.length * (self.mass_cart + self.mass_pole * np.sin(x[1])**2))
+               - (self.mass_cart + self.mass_pole) * self.gravity_acceleration * np.sin(x[1])
+               - u * np.cos(x[1])) / (self.length * (self.mass_cart + self.mass_pole * np.sin(x[1])**2))
         return [dx1, dx2, dx3, dx4]
 
     def dynamics_dt(self, x, u, sampling_time):

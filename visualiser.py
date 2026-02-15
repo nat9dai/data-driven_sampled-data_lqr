@@ -279,6 +279,51 @@ class Visualizer:
         print(f"Performance ratio (DD-SDLQR/SD-LQR): {state_norm_ddsd[-1]/state_norm_sd[-1]:.4f}")
         print(f"Performance ratio (DD-LQR/SD-LQR): {state_norm_dd[-1]/state_norm_sd[-1]:.4f}")
 
+    def plot_state_subplots(self, X_sim_ddsd, X_sim_dd, X_sim_sd,
+                            save_path='state_subplots.png'):
+        """
+        Plots each state trajectory in a 2x2 subplot, comparing all three controllers.
+
+        Args:
+            X_sim_ddsd: DD-SDLQR states (n × N)
+            X_sim_dd: DD-LQR states (n × N)
+            X_sim_sd: SD-LQR states (n × N)
+            save_path: Where to save the plot
+        """
+        # Convert to (N, n) format
+        if X_sim_ddsd.shape[0] < X_sim_ddsd.shape[1]:
+            X_sim_ddsd = X_sim_ddsd.T
+        if X_sim_dd.shape[0] < X_sim_dd.shape[1]:
+            X_sim_dd = X_sim_dd.T
+        if X_sim_sd.shape[0] < X_sim_sd.shape[1]:
+            X_sim_sd = X_sim_sd.T
+
+        n_states = X_sim_ddsd.shape[1]
+        t_sim = np.arange(len(X_sim_ddsd)) * self.h_sim
+        state_labels = self._get_state_labels(n_states)
+
+        fig, axes = plt.subplots(2, 2, figsize=(10, 7))
+        axes = axes.flatten()
+
+        for i in range(n_states):
+            ax = axes[i]
+            ax.plot(t_sim, X_sim_ddsd[:, i], label='DD-SDLQR',
+                    linewidth=1.2, color='blue', alpha=0.8)
+            ax.plot(t_sim, X_sim_dd[:, i], label='DD-LQR',
+                    linewidth=1.2, color='green', alpha=0.8)
+            ax.plot(t_sim, X_sim_sd[:, i], label='SD-LQR (Known Model)',
+                    linewidth=1.2, color='red', linestyle='--', alpha=0.8)
+            ax.set_ylabel(state_labels[i])
+            ax.set_xlabel('Time (s)')
+            ax.set_xlim(0, self.T_total)
+            ax.grid(True, alpha=0.3)
+            if i == 0:
+                ax.legend(fontsize=8)
+
+        fig.tight_layout()
+        fig.savefig(save_path, dpi=300)
+        print(f"\nState subplots saved to '{save_path}'")
+
     def plot_error_comparison(self, M_error_ddsd, M_error_dd,
                              save_path='system_error_comparison.png'):
         """
