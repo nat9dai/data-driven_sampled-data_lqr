@@ -73,7 +73,8 @@ print("Simulations complete!\n")
 os.makedirs('plots/simplified', exist_ok=True)
 
 # Create visualizer with system information for context-aware plotting
-viz = Visualizer(h_sim, sim_time, system=plant_1)
+viz = Visualizer(h_sim, sim_time)
+viz_tikz = TikZVisualizer(h_sim, sim_time)
 
 # Generate plots for DD-SDLQR
 # print("Generating DD-SDLQR plots...")
@@ -98,12 +99,13 @@ viz = Visualizer(h_sim, sim_time, system=plant_1)
 print("\nGenerating comparison plots...")
 # viz.plot_comparison(ddsd_states, sd_states,
 #                    save_path='plots/simplified/state_norm_comparison.png')
-viz.plot_state_subplots(ddsd_states, dd_states, sd_states,
-                        save_path='plots/simplified/state_subplots.png')
+# viz.plot_state_subplots(ddsd_states, dd_states, sd_states,
+#                         save_path='plots/simplified/state_subplots.png')
 viz.plot_three_way_comparison(ddsd_states, dd_states, sd_states,
-                              save_path='plots/simplified/three_way_state_norm_comparison.png')
-viz.plot_error_comparison(ddsd_simulation.M_error, dd_simulation.M_error,
-                         save_path='plots/simplified/system_error_comparison.png')
+                              save_path='plots/simplified/2.png')
+# viz_tikz.plot_three_way_comparison(ddsd_states, dd_states, sd_states)
+# viz.plot_error_comparison(ddsd_simulation.M_error, dd_simulation.M_error,
+#                          save_path='plots/simplified/system_error_comparison.png')
 
 # Display all plots
 viz.show_all()
